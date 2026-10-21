@@ -36,6 +36,7 @@ import { urlTokenRouter } from './routes/url-tokens.js';
 import { updateRouter } from './routes/update.js';
 import { moderationRouter } from './routes/moderation.js';
 import { requireAuth } from './middleware/requireAuth.js';
+import { createHostGuard } from './middleware/allowed-hosts.js';
 import { createProxyRateLimiter, createAdminRateLimiter } from './middleware/rateLimit.js';
 
 // Password-guess ceiling for GET /api/keys/export. Deliberately low: a real
@@ -105,6 +106,12 @@ export function createApp(config?: Config) {
   // /CIDRs trusts only those proxies. Must be set before client-context and
   // the rate-limit middleware, which both resolve the client IP.
   app.set('trust proxy', cfg.trustProxy);
+  // DNS-rebinding guard (#1637), first middleware so a rebinding request is
+  // rejected before helmet, CORS, body parsing, auth or routing. Loopback
+  // hosts always pass; ALLOWED_HOSTS extends the list ('*' disables). Must sit
+  // above everything below — its whole value is answering before any state or
+  // credential is touched.
+  app.use(createHostGuard(cfg.allowedHosts));
   const allowedCorsOrigins = new Set([
     ...DEFAULT_DASHBOARD_ORIGINS,
     ...cfg.dashboardOrigins,

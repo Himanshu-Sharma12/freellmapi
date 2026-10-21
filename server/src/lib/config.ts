@@ -65,6 +65,13 @@ export interface Config {
    * - false:     never emit (let HTTP LAN installs render the dashboard).
    */
   cspUpgradeInsecureRequests: boolean | undefined;
+  /**
+   * Extra Host-header names accepted by the DNS-rebinding guard (#1637),
+   * parsed from ALLOWED_HOSTS (comma-separated). The guard always accepts
+   * loopback (localhost / 127.0.0.1 / ::1 / *.localhost); this list adds LAN
+   * IPs and reverse-proxy names. A single `*` disables the guard outright.
+   */
+  allowedHosts: string[];
 }
 
 export function loadConfig(): Config {
@@ -89,7 +96,21 @@ export function loadConfig(): Config {
     // unset (the default) leaves it on auto — emit only when the request is
     // already TLS or forwarded as https, so HTTP LAN installs still render.
     cspUpgradeInsecureRequests: parseCspUpgradeInsecureRequests(),
+    allowedHosts: parseAllowedHosts(),
   };
+}
+
+// Parse ALLOWED_HOSTS (#1637). unset/empty → [] (loopback-only guard).
+// Otherwise a comma-separated list of exact hostnames (case-insensitive) that
+// the Host header may name, on top of the loopback default. A single '*'
+// disables the guard entirely — the middleware reads that sentinel.
+function parseAllowedHosts(): string[] {
+  const raw = process.env.ALLOWED_HOSTS;
+  if (raw === undefined || raw.trim() === '') return [];
+  return raw
+    .split(',')
+    .map(s => s.trim().toLowerCase())
+    .filter(Boolean);
 }
 
 // Parse TRUST_PROXY (#1024). unset/empty/false → false (do not trust forwarded

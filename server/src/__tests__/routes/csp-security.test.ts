@@ -109,6 +109,10 @@ describe('secure-context-only headers (#734)', () => {
 
   beforeAll(() => {
     process.env.ENCRYPTION_KEY = '0'.repeat(64);
+    // The LAN/proxy Hosts simulated below are exactly what ALLOWED_HOSTS
+    // (#1637) exists for: a LAN install declares the hosts it serves, and
+    // without them the Host guard 403s before the CSP middleware runs.
+    process.env.ALLOWED_HOSTS = '192.168.3.50,proxy.example.com';
     initDb(':memory:');
     app = createApp();
   });
